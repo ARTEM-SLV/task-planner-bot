@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"task-planner-bot/internal/database/postgres"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5" // Telegram API
 	"github.com/joho/godotenv"                                    // Для загрузки переменных из .env файла
@@ -55,8 +56,10 @@ func main() {
 	botAPI.Debug = true
 	log.Printf("Авторизован бот %s", botAPI.Self.UserName)
 
+	rep := postgres.NewRepositoryPg(db.Pool)
+
 	// Запуск обработчика команд бота
-	botHandler := bot.NewBotHandler(botAPI, db.Pool)
+	botHandler := bot.NewBotHandler(botAPI, rep)
 	botHandler.StartPolling()
 
 	log.Println("Бот завершил работу")

@@ -2,7 +2,7 @@ package telegram
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"task-planner-bot/internal/database"
 	"task-planner-bot/internal/logging"
 )
 
@@ -16,14 +16,14 @@ func SetLogger(l *logging.Logger) {
 // BotHandler хранит экземпляр бота и подключение к базе данных
 type BotHandler struct {
 	Bot *tgbotapi.BotAPI
-	DB  *pgxpool.Pool
+	Rep database.Repository
 }
 
 // NewBotHandler создает новый экземпляр BotHandler
-func NewBotHandler(bot *tgbotapi.BotAPI, db *pgxpool.Pool) *BotHandler {
+func NewBotHandler(bot *tgbotapi.BotAPI, rep database.Repository) *BotHandler {
 	return &BotHandler{
 		Bot: bot,
-		DB:  db,
+		Rep: rep,
 	}
 }
 

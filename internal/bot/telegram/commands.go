@@ -1,6 +1,8 @@
 package telegram
 
 import (
+	"log"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -8,6 +10,17 @@ import (
 func (h *BotHandler) HandleStart(update tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Привет! Я Task Planner Bot.\nЯ помогу вам организовать задачи.")
 	h.Bot.Send(msg)
+
+	userID := update.Message.From.ID
+	username := update.Message.From.UserName
+	lastMsgID := update.Message.MessageID
+
+	// Добавляем или обновляем пользователя
+	err := h.Rep.AddUser(userID, username, lastMsgID)
+	if err != nil {
+		log.Printf("Ошибка добавления или обновления пользователя: %v", err)
+		return
+	}
 	// Здесь можно добавить логику для добавления пользователя в базу данных, если его нет
 }
 
