@@ -2,6 +2,7 @@ package telegram
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"log"
 	"task-planner-bot/internal/database"
 	"task-planner-bot/internal/logging"
 )
@@ -35,26 +36,29 @@ func (h *BotHandler) StartPolling() {
 	updates := h.Bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message == nil { // Игнорируем non-Message Updates
-			continue
+		if update.CallbackQuery != nil {
+			// Обрабатываем callback-запрос (если нажали на кнопку)
+			h.HandleCallbackQuery(update)
+		} else if update.Message != nil {
+			// Обрабатываем обычные сообщения
+			h.HandleQuery(update)
 		}
+	}
+}
 
-		// Обработка команд
-		switch update.Message.Command() {
-		case "start":
-			h.HandleStart(update)
-		case "new_task":
-			h.HandleNewTask(update)
-		case "tasks":
-			h.HandleTasks(update)
-		case "settings":
-			h.HandleSettings(update)
-		case "report":
-			h.HandleReport(update)
-		case "help":
-			h.HandleHelp(update)
-		default:
-			h.HandleUnknownCommand(update)
-		}
+func (h *BotHandler) sandMessage(msg tgbotapi.Chattable) {
+	_, err := h.Bot.Send(msg)
+	if err != nil {
+		log.Printf("Ошибка отправки сообщения: %v", err)
+	}
+}
+
+func (h *BotHandler) deleteMessage(chatID int64, msgID int) {
+	deleteMsg := tgbotapi.NewDeleteMessage(chatID, msgID)
+	_, err := h.Bot.Request(deleteMsg)
+	if err != nil {
+		log.Printf("Ошибка удаления сообщения: %v", err)
+	} else {
+		log.Printf("Сообщение удалено")
 	}
 }

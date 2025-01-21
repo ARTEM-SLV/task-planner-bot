@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"log"
+	"task-planner-bot/internal/database"
 	"time"
 )
 
@@ -27,7 +28,9 @@ func (r *RepositoryPg) AddUser(userID int64, username string, lastMsgID int) err
 		return err
 	}
 
-	if !exists {
+	if exists {
+		log.Printf("Пользователь %s (ID: %d) уже зарегистрирован.", username, userID)
+	} else {
 		// SQL-запрос для добавления или обновления пользователя
 		query := `
         INSERT INTO tasks_bot.users (id, username, last_msg_id, date_registration)
@@ -44,8 +47,26 @@ func (r *RepositoryPg) AddUser(userID int64, username string, lastMsgID int) err
 			return err
 		}
 
-		log.Printf("Пользователь %s (ID: %d) успешно добавлен или обновлен.", username, userID)
+		log.Printf("Пользователь %s (ID: %d) успешно добавлен.", username, userID)
 	}
 
 	return nil
+}
+
+// GetSetting получает значение настройки по ключу для указанного пользователя
+func (r *RepositoryPg) GetSetting(userID int64, key string) (*database.Setting, error) {
+	query := `
+        SELECT value_s, value_i, value_b
+        FROM settings
+        WHERE user_id = $1 AND setting_key = $2;
+    `
+	setting := &database.Setting{}
+	err := r.pool.QueryRow(context.Background(), query, userID, key).Scan(&setting.ValueS, &setting.ValueI, &setting.ValueB)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil // Настройка не найдена
+		}
+		return nil, err
+	}
+	return setting, nil
 }
