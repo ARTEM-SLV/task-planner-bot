@@ -2,6 +2,7 @@ package telegram
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"task-planner-bot/internal/consts"
 )
 
@@ -9,17 +10,17 @@ func (h *BotHandler) HandleQuery(update tgbotapi.Update) {
 	chatID := update.Message.Chat.ID
 
 	switch update.Message.Command() {
-	case "start":
+	case consts.Start:
 		h.HandleStart(update)
-	case "new_task":
+	case consts.NewTask:
 		h.HandleNewTask(chatID)
-	case "tasks":
+	case consts.Tasks:
 		h.HandleTasks(chatID)
-	case "settings":
+	case consts.Settings:
 		h.HandleSettings(chatID)
-	case "report":
+	case consts.Report:
 		h.HandleReport(chatID)
-	case "help":
+	case consts.Help:
 		h.HandleHelp(chatID)
 	default:
 		h.HandleUnknownCommand(chatID)
@@ -37,16 +38,20 @@ func (h *BotHandler) HandleCallbackQuery(update tgbotapi.Update) {
 	userID := callback.From.ID
 
 	switch data {
-	case "new_task":
+	case consts.NewTask:
 		h.HandleNewTask(chatID)
-	case "tasks":
+	case consts.Tasks:
 		h.HandleTasks(chatID)
-	case "settings":
+	case consts.Settings:
 		h.HandleSettings(chatID)
-	case "report":
+	case consts.Report:
 		h.HandleReport(chatID)
 	case consts.Notify:
-		h.HandleSettingNotify(chatID, userID)
+		h.HandleSettingState(chatID, userID, consts.Notify)
+	case consts.NotifyUntil:
+		h.HandleSettingNumber(chatID, userID, consts.NotifyUntil)
+	case consts.CostOfTasks:
+		h.HandleSettingState(chatID, userID, consts.CostOfTasks)
 	case consts.Enable:
 		v := consts.Enable
 		h.HandleEnableDisableNotify(chatID, userID, v)
@@ -56,6 +61,14 @@ func (h *BotHandler) HandleCallbackQuery(update tgbotapi.Update) {
 	case consts.Back:
 		h.HandleBack(chatID)
 	default:
-		h.HandleUnknownCommand(chatID)
+		if h.userState[chatID].into {
+			userState := h.userState[chatID]
+			userState.into = false
+			h.userState[chatID] = userState
+
+			h.Handle(chatID)
+		} else {
+			h.HandleUnknownCommand(chatID)
+		}
 	}
 }

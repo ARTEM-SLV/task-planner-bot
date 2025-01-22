@@ -62,7 +62,8 @@ func (r *RepositoryPg) GetSetting(userID int64, key string) (*database.Setting, 
         WHERE user_id = $1 AND key = $2;
     `
 	setting := &database.Setting{}
-	err := r.pool.QueryRow(context.Background(), query, userID, key).Scan(&setting.ValueS, &setting.ValueI, &setting.ValueB)
+	row := r.pool.QueryRow(context.Background(), query, userID, key)
+	err := row.Scan(&setting.ValueS, &setting.ValueI, &setting.ValueB)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, nil // Настройка не найдена

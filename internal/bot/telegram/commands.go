@@ -2,8 +2,11 @@ package telegram
 
 import (
 	"database/sql"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"fmt"
 	"log"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"task-planner-bot/internal/consts"
 	"task-planner-bot/internal/database"
 )
@@ -11,8 +14,9 @@ import (
 // HandleStart обрабатывает команду /start
 func (h *BotHandler) HandleStart(update tgbotapi.Update) {
 	chatID := update.Message.Chat.ID
+	h.userState[chatID] = UserState{}
 
-	msg := tgbotapi.NewMessage(chatID, "Привет! Я Task Planner Bot.\nЯ помогу вам организовать задачи.")
+	msg := tgbotapi.NewMessage(chatID, consts.MsgWelcome)
 	h.sandMessage(msg)
 
 	userID := update.Message.From.ID
@@ -32,7 +36,7 @@ func (h *BotHandler) HandleStart(update tgbotapi.Update) {
 
 // HandleNewTask обрабатывает команду /new_task
 func (h *BotHandler) HandleNewTask(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Введите дату и текст задачи.")
+	msg := tgbotapi.NewMessage(chatID, consts.MsgChooseDate)
 	h.sandMessage(msg)
 	// Здесь добавим логику для создания задачи
 }
@@ -73,8 +77,7 @@ func (h *BotHandler) HandleHelp(chatID int64) {
 	h.sandMessage(msg)
 }
 
-func (h *BotHandler) HandleSettingNotify(chatID int64, userID int64) {
-	key := consts.Notify
+func (h *BotHandler) HandleSettingState(chatID, userID int64, key string) {
 	setting, err := h.Rep.GetSetting(userID, key)
 	if err != nil {
 		log.Printf("Ошибка получения данных: %v", err)
@@ -95,13 +98,42 @@ func (h *BotHandler) HandleSettingNotify(chatID int64, userID int64) {
 		value = "Отключено"
 	}
 
-	newMsg := keyboardEnableDisableK(chatID, value)
+	userState := h.userState[chatID]
+	userState.key = key
+	h.userState[chatID] = userState
+
+	newMsg := keyboardState(chatID, value)
 	h.sandMessage(newMsg)
 }
 
-func (h *BotHandler) HandleEnableDisableNotify(chatID int64, userID int64, v string) {
+func (h *BotHandler) HandleSettingNumber(chatID, userID int64, key string) {
+	setting, err := h.Rep.GetSetting(userID, key)
+	if err != nil {
+		log.Printf("Ошибка получения данных: %v", err)
+	}
+
+	if setting == nil {
+		setting = &database.Setting{
+			ValueI: sql.NullInt32{
+				Int32: 0,
+			},
+		}
+	}
+
+	value := fmt.Sprintf("%v мин.", setting.ValueI.Int32)
+	text := fmt.Sprintf("Сейчас значение %s. Введите новое значение", value)
+
+	userState := h.userState[chatID]
+	userState.into = true
+	h.userState[chatID] = userState
+
+	newMsg := keyboardState(chatID, text)
+	h.sandMessage(newMsg)
+}
+
+func (h *BotHandler) HandleEnableDisableNotify(chatID, userID int64, v string) {
 	var valueB bool
-	key := consts.Notify
+	key := h.userState[chatID].key
 
 	if v == consts.Enable {
 		valueB = true
@@ -120,8 +152,23 @@ func (h *BotHandler) HandleEnableDisableNotify(chatID int64, userID int64, v str
 	h.HandleBack(chatID)
 }
 
+func (h *BotHandler) Handle(chatID int64) {
+	//TODO -
+}
+
 func (h *BotHandler) HandleBack(chatID int64) {
-	newMsg := mainKeyboard(chatID)
+	var newMsg tgbotapi.Chattable
+
+	switch h.userState[chatID].last {
+	case consts.Settings:
+		newMsg = settingsKeyboard(chatID)
+	case consts.Root:
+		newMsg = mainKeyboard(chatID)
+	default:
+		newMsg = mainKeyboard(chatID)
+	}
+
+	//newMsg := mainKeyboard(chatID)
 	h.sandMessage(newMsg)
 }
 

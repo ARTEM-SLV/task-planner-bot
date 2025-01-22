@@ -8,17 +8,25 @@ import (
 	"task-planner-bot/internal/database"
 )
 
+type UserState struct {
+	key  string
+	last string
+	into bool
+}
+
 // BotHandler хранит экземпляр бота и подключение к базе данных
 type BotHandler struct {
-	Bot *tgbotapi.BotAPI
-	Rep database.Repository
+	Bot       *tgbotapi.BotAPI
+	Rep       database.Repository
+	userState map[int64]UserState
 }
 
 // NewBotHandler создает новый экземпляр BotHandler
 func NewBotHandler(bot *tgbotapi.BotAPI, rep database.Repository) *BotHandler {
 	return &BotHandler{
-		Bot: bot,
-		Rep: rep,
+		Bot:       bot,
+		Rep:       rep,
+		userState: make(map[int64]UserState),
 	}
 }
 
