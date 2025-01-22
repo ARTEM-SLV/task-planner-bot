@@ -1,18 +1,12 @@
 package telegram
 
 import (
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"task-planner-bot/internal/database"
-	"task-planner-bot/internal/logging"
 )
-
-var logger *logging.Logger
-
-// SetLogger устанавливает логгер для бота
-func SetLogger(l *logging.Logger) {
-	logger = l
-}
 
 // BotHandler хранит экземпляр бота и подключение к базе данных
 type BotHandler struct {

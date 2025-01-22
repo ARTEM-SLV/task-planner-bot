@@ -1,9 +1,11 @@
 package telegram
 
 import (
-	"log"
-
+	"database/sql"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"log"
+	"task-planner-bot/internal/consts"
+	"task-planner-bot/internal/database"
 )
 
 // HandleStart обрабатывает команду /start
@@ -71,13 +73,60 @@ func (h *BotHandler) HandleHelp(chatID int64) {
 	h.sandMessage(msg)
 }
 
-// HandleUnknownCommand обрабатывает неизвестные команды
-func (h *BotHandler) HandleUnknownCommand(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Извините, я не знаю такой команды.")
-	h.sandMessage(msg)
+func (h *BotHandler) HandleSettingNotify(chatID int64, userID int64) {
+	key := consts.Notify
+	setting, err := h.Rep.GetSetting(userID, key)
+	if err != nil {
+		log.Printf("Ошибка получения данных: %v", err)
+	}
+
+	if setting == nil {
+		setting = &database.Setting{
+			ValueB: sql.NullBool{
+				Bool: false,
+			},
+		}
+	}
+
+	var value string
+	if setting.ValueB.Bool {
+		value = "Включено"
+	} else {
+		value = "Отключено"
+	}
+
+	newMsg := keyboardEnableDisableK(chatID, value)
+	h.sandMessage(newMsg)
+}
+
+func (h *BotHandler) HandleEnableDisableNotify(chatID int64, userID int64, v string) {
+	var valueB bool
+	key := consts.Notify
+
+	if v == consts.Enable {
+		valueB = true
+	} else if v == consts.Disable {
+		valueB = false
+	} else {
+		log.Printf("Unknown value: %s", v)
+		return
+	}
+
+	err := h.Rep.SaveSetting(userID, key, valueB)
+	if err != nil {
+		log.Printf("Ошибка сохранения настроки %s: %v", key, err)
+	}
+
+	h.HandleBack(chatID)
 }
 
 func (h *BotHandler) HandleBack(chatID int64) {
 	newMsg := mainKeyboard(chatID)
 	h.sandMessage(newMsg)
+}
+
+// HandleUnknownCommand обрабатывает неизвестные команды
+func (h *BotHandler) HandleUnknownCommand(chatID int64) {
+	msg := tgbotapi.NewMessage(chatID, "Извините, я не знаю такой команды.")
+	h.sandMessage(msg)
 }

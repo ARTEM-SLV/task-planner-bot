@@ -3,13 +3,13 @@ package main
 import (
 	"log"
 	"os"
-	"task-planner-bot/internal/database/postgres"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5" // Telegram API
 	"github.com/joho/godotenv"                                    // Для загрузки переменных из .env файла
 
 	bot "task-planner-bot/internal/bot/telegram"
 	"task-planner-bot/internal/database" // Модуль для работы с базой данных
+	"task-planner-bot/internal/database/postgres"
 )
 
 func initLogger() {
