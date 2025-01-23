@@ -125,3 +125,18 @@ func (r *RepositoryPg) SaveSetting(userID int64, key, value any) error {
 	log.Printf("Настройка сохранена: key=%s, value=%v", key, value)
 	return nil
 }
+
+func (r *RepositoryPg) SaveTask(userID int64, date time.Time, text string, worth int) error {
+	query := `
+		INSERT INTO tasks_bot.tasks (user_id, date, text, worth)
+		VALUES ($1, $2, $3, $4);
+	`
+
+	_, err := r.pool.Exec(context.Background(), query, userID, date, text, worth)
+	if err != nil {
+		log.Printf("Ошибка выполнения запроса: %v", err)
+		return err
+	}
+
+	return nil
+}

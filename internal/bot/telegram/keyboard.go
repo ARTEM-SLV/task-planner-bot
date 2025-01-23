@@ -1,8 +1,6 @@
 package telegram
 
 import (
-	"fmt"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"task-planner-bot/internal/consts"
@@ -27,7 +25,7 @@ func settingsKeyboard(chatID int64) tgbotapi.Chattable {
 	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyNotify, consts.Notify)),
 		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyNotifyUntil, consts.NotifyUntil)),
-		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyCostOfTasks, consts.CostOfTasks)),
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyCostOfTasks, consts.WorthOfTasks)),
 		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyBack, consts.Back)),
 	)
 
@@ -38,7 +36,7 @@ func settingsKeyboard(chatID int64) tgbotapi.Chattable {
 	return msg
 }
 
-func keyboardState(chatID int64, value string) tgbotapi.Chattable {
+func keyboardState(chatID int64, text string) tgbotapi.Chattable {
 	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyEnable, consts.Enable)),
 		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData(consts.KeyDisable, consts.Disable)),
@@ -46,7 +44,7 @@ func keyboardState(chatID int64, value string) tgbotapi.Chattable {
 	)
 
 	// Отправка приветственного сообщения с клавиатурой
-	msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("В данный момент состояние '%s'", value))
+	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ReplyMarkup = inlineKeyboard
 
 	return msg

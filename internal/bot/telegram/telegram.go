@@ -1,24 +1,32 @@
 package telegram
 
 import (
-	"log"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"log"
+	"time"
 
 	"task-planner-bot/internal/database"
 )
 
+type TaskData struct {
+	date time.Time
+	text string
+}
+
 type UserState struct {
-	key  string
-	last string
-	into bool
+	isInput  bool
+	isNumber bool
+	key      string
+	state    string
+	last     string
 }
 
 // BotHandler хранит экземпляр бота и подключение к базе данных
 type BotHandler struct {
 	Bot       *tgbotapi.BotAPI
 	Rep       database.Repository
-	userState map[int64]UserState
+	userState map[int64]*UserState
+	taskData  map[int64]*TaskData
 }
 
 // NewBotHandler создает новый экземпляр BotHandler
@@ -26,7 +34,8 @@ func NewBotHandler(bot *tgbotapi.BotAPI, rep database.Repository) *BotHandler {
 	return &BotHandler{
 		Bot:       bot,
 		Rep:       rep,
-		userState: make(map[int64]UserState),
+		userState: make(map[int64]*UserState),
+		taskData:  make(map[int64]*TaskData),
 	}
 }
 
@@ -55,6 +64,11 @@ func (h *BotHandler) sandMessage(msg tgbotapi.Chattable) {
 	}
 }
 
+func (h *BotHandler) sandNewMessage(chatID int64, text string) {
+	msg := tgbotapi.NewMessage(chatID, text)
+	h.sandMessage(msg)
+}
+
 func (h *BotHandler) deleteMessage(chatID int64, msgID int) {
 	deleteMsg := tgbotapi.NewDeleteMessage(chatID, msgID)
 	_, err := h.Bot.Request(deleteMsg)
@@ -63,4 +77,15 @@ func (h *BotHandler) deleteMessage(chatID int64, msgID int) {
 	} else {
 		log.Printf("Сообщение удалено")
 	}
+}
+
+func (h *BotHandler) changeState(chatID int64, isInput, isNumber bool, k, s string) {
+	userState := *h.userState[chatID]
+
+	userState.isInput = isInput
+	userState.isNumber = isNumber
+	userState.key = k
+	userState.state = s
+
+	h.userState[chatID] = &userState
 }

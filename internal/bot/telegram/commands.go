@@ -3,9 +3,10 @@ package telegram
 import (
 	"database/sql"
 	"fmt"
-	"log"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"log"
+	"strconv"
+	"time"
 
 	"task-planner-bot/internal/consts"
 	"task-planner-bot/internal/database"
@@ -14,7 +15,7 @@ import (
 // HandleStart обрабатывает команду /start
 func (h *BotHandler) HandleStart(update tgbotapi.Update) {
 	chatID := update.Message.Chat.ID
-	h.userState[chatID] = UserState{}
+	h.userState[chatID] = &UserState{}
 
 	msg := tgbotapi.NewMessage(chatID, consts.MsgWelcome)
 	h.sandMessage(msg)
@@ -36,20 +37,26 @@ func (h *BotHandler) HandleStart(update tgbotapi.Update) {
 
 // HandleNewTask обрабатывает команду /new_task
 func (h *BotHandler) HandleNewTask(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, consts.MsgChooseDate)
+	msg := tgbotapi.NewMessage(chatID, consts.MsgInputTaskDate)
 	h.sandMessage(msg)
+
 	// Здесь добавим логику для создания задачи
+	//userState := h.userState[chatID]
+	//userState.isInput = true
+	//h.userState[chatID] = userState
+	h.changeState(chatID, true, false, "", consts.EnumTaskDate)
+
 }
 
 // HandleTasks обрабатывает команду /tasks
 func (h *BotHandler) HandleTasks(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Выберите период для просмотра задач.")
+	msg := tgbotapi.NewMessage(chatID, consts.MsgPeriodViewTasks)
 	h.sandMessage(msg)
 }
 
 // HandleSettings обрабатывает команду /settings
 func (h *BotHandler) HandleSettings(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Настройки: уведомления, период уведомлений, учет ценности задач.")
+	msg := tgbotapi.NewMessage(chatID, consts.MsgSettings)
 	h.sandMessage(msg)
 
 	// Здесь добавим логику для управления настройками пользователя
@@ -59,7 +66,7 @@ func (h *BotHandler) HandleSettings(chatID int64) {
 
 // HandleReport обрабатывает команду /report
 func (h *BotHandler) HandleReport(chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Выберите период для отчета по выполненным задачам.")
+	msg := tgbotapi.NewMessage(chatID, consts.MsgPeriodViewReport)
 	h.sandMessage(msg)
 	// Здесь добавим логику для вывода отчета
 }
@@ -98,36 +105,38 @@ func (h *BotHandler) HandleSettingState(chatID, userID int64, key string) {
 		value = "Отключено"
 	}
 
-	userState := h.userState[chatID]
-	userState.key = key
-	h.userState[chatID] = userState
+	//userState := h.userState[chatID]
+	//userState.key = key
+	//h.userState[chatID] = userState
+	h.changeState(chatID, false, false, key, consts.EnumSettings)
 
 	newMsg := keyboardState(chatID, value)
 	h.sandMessage(newMsg)
 }
 
-func (h *BotHandler) HandleSettingNumber(chatID, userID int64, key string) {
+func (h *BotHandler) HandleSettingNumber(chatID, userID int64, key string, text string) {
 	setting, err := h.Rep.GetSetting(userID, key)
 	if err != nil {
 		log.Printf("Ошибка получения данных: %v", err)
 	}
 
+	var value string
 	if setting == nil {
-		setting = &database.Setting{
-			ValueI: sql.NullInt32{
-				Int32: 0,
-			},
-		}
+		value = fmt.Sprintf("'Отключено'")
+	} else {
+		value = fmt.Sprintf("%v мин.", setting.ValueI.Int32)
 	}
 
-	value := fmt.Sprintf("%v мин.", setting.ValueI.Int32)
-	text := fmt.Sprintf("Сейчас значение %s. Введите новое значение", value)
+	text = fmt.Sprintf("%s\n Сейчас значение %s Введите новое значение", text, value)
 
-	userState := h.userState[chatID]
-	userState.into = true
-	h.userState[chatID] = userState
+	//userState := h.userState[chatID]
+	//userState.isInput = true
+	//userState.key = key
+	//userState.isNumber = true
+	//h.userState[chatID] = userState
+	h.changeState(chatID, true, true, key, consts.EnumSettings)
 
-	newMsg := keyboardState(chatID, text)
+	newMsg := keyboardBack(chatID, text)
 	h.sandMessage(newMsg)
 }
 
@@ -152,8 +161,67 @@ func (h *BotHandler) HandleEnableDisableNotify(chatID, userID int64, v string) {
 	h.HandleBack(chatID)
 }
 
-func (h *BotHandler) Handle(chatID int64) {
-	//TODO -
+func (h *BotHandler) HandleUserInput(chatID, userID int64, v any) {
+	key := h.userState[chatID].key
+
+	switch h.userState[chatID].state {
+	case consts.EnumSettings:
+		err := h.Rep.SaveSetting(userID, key, v)
+		if err != nil {
+			log.Printf("Ошибка сохранения настроки %s: %v", key, err)
+		}
+
+		h.changeState(chatID, false, false, "", "")
+		h.HandleBack(chatID)
+	case consts.EnumTaskDate:
+		date, err := time.Parse("2006-01-02 15:04", v.(string))
+		if err == nil {
+			h.taskData[chatID] = &TaskData{
+				date: date,
+			}
+
+			h.sandNewMessage(chatID, consts.MsgInputTaskText)
+			h.changeState(chatID, true, false, "", consts.EnumTaskText)
+		} else {
+			msg := tgbotapi.NewMessage(chatID, "Неверный формат даты. Попробуйте еще раз в формате ГГГГ-ММ-ДД ЧЧ:ММ.")
+			h.sandMessage(msg)
+		}
+	case consts.EnumTaskText:
+		settings, err := h.Rep.GetSetting(userID, consts.WorthOfTasks)
+		if err == nil {
+			if settings.ValueB.Bool {
+				taskDate := *h.taskData[chatID]
+				taskDate.text = v.(string)
+				h.taskData[chatID] = &taskDate
+
+				h.sandNewMessage(chatID, consts.MsgInputTaskWorth)
+				h.changeState(chatID, true, true, "", consts.EnumTuskWorth)
+			}
+		} else {
+			log.Printf("Ошибка получения настроки %s %v:", consts.WorthOfTasks, err)
+			h.changeState(chatID, false, false, "", "")
+			h.HandleBack(chatID)
+		}
+	case consts.EnumTuskWorth:
+		err := h.Rep.SaveTask(chatID, h.taskData[chatID].date, h.taskData[chatID].text, v.(int))
+		if err != nil {
+			msg := tgbotapi.NewMessage(chatID, "Ошибка сохранения задачи. Попробуйте позже.")
+			h.sandMessage(msg)
+			log.Printf("Ошибка сохранения задачи: %v", err)
+			h.HandleBack(chatID)
+			return
+
+			msg = tgbotapi.NewMessage(chatID, consts.MsgTaskAdded)
+			h.sandMessage(msg)
+
+			h.changeState(chatID, false, false, "", "")
+			h.HandleBack(chatID)
+
+			delete(h.taskData, chatID)
+		}
+	}
+
+	//h.HandleBack(chatID)
 }
 
 func (h *BotHandler) HandleBack(chatID int64) {
@@ -172,8 +240,38 @@ func (h *BotHandler) HandleBack(chatID int64) {
 	h.sandMessage(newMsg)
 }
 
-// HandleUnknownCommand обрабатывает неизвестные команды
-func (h *BotHandler) HandleUnknownCommand(chatID int64) {
+// HandleUserRequests обрабатывает все неизвестные запросы от пользователя
+func (h *BotHandler) HandleUserRequests(chatID, userID int64, txt string) {
+	state, exists := h.userState[chatID]
+	if !exists {
+		msg := tgbotapi.NewMessage(chatID, "Извините, я не знаю такой команды.")
+		h.sandMessage(msg)
+
+		return
+	}
+
+	if state.isInput {
+		if state.isNumber {
+			number, err := strconv.Atoi(txt)
+			if err == nil {
+				h.HandleUserInput(chatID, userID, number)
+			} else {
+				msg := tgbotapi.NewMessage(chatID, consts.MsgErrEnteringNumber)
+				_, _ = h.Bot.Send(msg)
+			}
+		} else {
+			h.HandleUserInput(chatID, userID, txt)
+		}
+
+		//userState := h.userState[chatID]
+		//userState.isInput = false
+		//userState.isNumber = false
+		//h.userState[chatID] = userState
+		//h.changeState(chatID, "", "", false, false, )
+
+		return
+	}
+
 	msg := tgbotapi.NewMessage(chatID, "Извините, я не знаю такой команды.")
 	h.sandMessage(msg)
 }

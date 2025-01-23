@@ -10,9 +10,9 @@ const (
 	Settings = "settings"
 	Report   = "report"
 
-	Notify      = "notify"
-	NotifyUntil = "notify_until"
-	CostOfTasks = "cost_of_tasks"
+	Notify       = "notify"
+	NotifyUntil  = "notify_until"
+	WorthOfTasks = "worth_of_tasks"
 
 	Enable  = "enable"
 	Disable = "disable"
